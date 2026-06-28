@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تسجيل الدخول</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+  <!-- نموذج تسجيل الدخول -->
+  <div class="card" id="loginCard">
+    <h1>تسجيل الدخول</h1>
+    <p class="subtitle">أدخل رقم جوالك للدخول إلى حسابك</p>
+
+    <form id="loginForm">
+      <label for="phone">رقم الجوال</label>
+      <div class="phone-group">
+        <select id="countryCode"></select>
+        <input type="tel" id="phone" placeholder="5xxxxxxxx" required>
+      </div>
+
+      <div class="remember-row">
+        <input type="checkbox" id="rememberMe">
+        <label for="rememberMe" style="margin:0;">تذكرني (يبقى الدخول مفعّلاً 24 ساعة)</label>
+      </div>
+
+      <button type="submit" id="loginBtn">دخول</button>
+    </form>
+
+    <div class="divider"><span>أو</span></div>
+    <button type="button" class="btn-biometric" id="biometricBtn">🔐 دخول بالبصمة الحيوية</button>
+
+    <div class="message" id="loginMessage"></div>
+
+    <p class="footer-link">ليس لديك حساب؟ <a href="register.html">سجّل الآن</a></p>
+    <p class="footer-link"><a href="admin.html">دخول المدير</a></p>
+  </div>
+
+  <!-- بعد تسجيل الدخول -->
+  <div class="card" id="welcomeCard" style="display:none;">
+    <h1 id="welcomeTitle">مرحباً</h1>
+    <p class="subtitle" id="welcomeSubtitle"></p>
+
+    <button class="btn-biometric" id="enrollBiometricBtn">🔐 تفعيل البصمة لهذا الجهاز</button>
+    <div class="message" id="enrollMessage"></div>
+
+    <button class="btn-secondary" id="logoutBtn" style="margin-top:24px;">تسجيل الخروج</button>
+  </div>
+
+<script src="assets/config.js"></script>
+<script>
+const loginCard = document.getElementById('loginCard');
+const welcomeCard = document.getElementById('welcomeCard');
+const loginForm = document.getElementById('loginForm');
+const loginBtn = document.getElementById('loginBtn');
+const loginMessage = document.getElementById('loginMessage');
+const biometricBtn = document.getElementById('biometricBtn');
+
+buildCountrySelect(document.getElementById('countryCode'));
+
+function showMessage(el, text, type) {
+  el.textContent = text;
+  el.className = 'message show ' + type;
+}
+
+function getCurrentPhone() {
+  const code = document.getElementById('countryCode').value;
+  const local = document.getElementById('phone').value;
+  return combinePhone(code, local);
+}
+
+function persistSession(user, remember) {
+  const payload = JSON.stringify(user);
+  if (remember) {
+    localStorage.setItem('currentUser', payload);
+    localStorage.setItem('loginAt', String(Date.now()));
+    sessionStorage.removeItem('currentUser');
+  } else {
+    sessionStorage.setItem('currentUser', payload);
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('loginAt');
+  }
+}
+
+function showWelcome(user) {
+  loginCard.style.display = 'none';
+  welcomeCard.style.display = 'block';
+  document.getElementById('welcomeTitle').textContent = 'مرحباً ' + user.name;
+  document.getElementById('welcomeSubtitle').textContent = user.phone;
+  window.__currentUser = user;
+}
+
+// ---------- فحص الجلسة المحفوظة عند فتح الصفحة ----------
+(function restoreSession() {
+  const rememberedUser = localStorage.getItem('currentUser');
+  const loginAt = localStorage.getItem('loginAt');
+
+  if (rememberedUser && loginAt) {
+    const elapsed = Date.now() - Number(loginAt);
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    if (elapsed < DAY_MS) {
+      showWelcome(JSON.parse(rememberedUser));
+      return;
+    }
+    // انتهت صلاحية 24 ساعة
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('loginAt');
+  }
+
+  const sessionUser = sessionStorage.getItem('currentUser');
+  if (sessionUser) {
+    showWelcome(JSON.parse(sessionUser));
+  }
+})();
+
+// ---------- تسجيل الدخول العادي ----------
+loginForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const phone = getCurrentPhone();
+  const remember = document.getElementById('rememberMe').checked;
+
+  loginBtn.disabled = true;
+  loginBtn.innerHTML = 'جاري الدخول... <span class="spinner"></span>';
+  loginMessage.className = 'message';
+
+  const result = await callApi('login', { phone });
+
+  loginBtn.disabled = false;
+  loginBtn.textContent = 'دخول';
+
+  if (result.success) {
+    persistSession(result.user, remember);
+    showWelcome(result.user);
+  } else {
+    showMessage(loginMessage, result.message, 'error');
+  }
+});
+
+// ---------- تسجيل الدخول بالبصمة ----------
+biometricBtn.addEventListener('click', async () => {
+  const phone = getCurrentPhone();
+  if (!phone || document.getElementById('phone').value.trim() === '') {
+    showMessage(loginMessage, 'أدخل رقم جوالك أولاً لاستخدام البصمة', 'error');
+    return;
+  }
+
+  biometricBtn.disabled = true;
+  biometricBtn.textContent = 'جاري التحقق من البصمة...';
+
+  const result = await loginWithBiometric(phone);
+
+  biometricBtn.disabled = false;
+  biometricBtn.textContent = '🔐 دخول بالبصمة الحيوية';
+
+  if (result.success) {
+    const remember = document.getElementById('rememberMe').checked;
+    persistSession(result.user, remember);
+    showWelcome(result.user);
+  } else {
+    showMessage(loginMessage, result.message, 'error');
+  }
+});
+
+// ---------- تفعيل البصمة لهذا الجهاز (بعد تسجيل دخول عادي) ----------
+document.getElementById('enrollBiometricBtn').addEventListener('click', async () => {
+  const enrollMessage = document.getElementById('enrollMessage');
+  const btn = document.getElementById('enrollBiometricBtn');
+
+  btn.disabled = true;
+  btn.textContent = 'جاري التفعيل...';
+
+  const result = await registerBiometric(window.__currentUser.id);
+
+  btn.disabled = false;
+  btn.textContent = '🔐 تفعيل البصمة لهذا الجهاز';
+
+  showMessage(enrollMessage, result.message, result.success ? 'success' : 'error');
+});
+
+// ---------- تسجيل الخروج ----------
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  localStorage.removeItem('currentUser');
+  localStorage.removeItem('loginAt');
+  sessionStorage.removeItem('currentUser');
+  welcomeCard.style.display = 'none';
+  loginCard.style.display = 'block';
+  loginForm.reset();
+});
+</script>
+</body>
+</html>

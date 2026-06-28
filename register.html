@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تسجيل جديد</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+  <div class="card" id="registerCard">
+    <h1>تسجيل حساب جديد</h1>
+    <p class="subtitle">سيتم تفعيل حسابك بعد موافقة المدير</p>
+
+    <form id="registerForm">
+      <label for="name">الاسم الكامل</label>
+      <input type="text" id="name" required>
+
+      <label for="phone">رقم الجوال</label>
+      <div class="phone-group">
+        <select id="countryCode"></select>
+        <input type="tel" id="phone" placeholder="5xxxxxxxx" required>
+      </div>
+      <div class="hint">سيتم استخدام هذا الرقم لتسجيل الدخول لاحقاً</div>
+
+      <label for="email">البريد الإلكتروني <span style="color:#9ca3af;font-weight:400;">(اختياري)</span></label>
+      <input type="email" id="email">
+
+      <button type="submit" id="registerBtn">تسجيل</button>
+    </form>
+
+    <div class="message" id="registerMessage"></div>
+
+    <p class="footer-link">لديك حساب بالفعل؟ <a href="index.html">سجّل الدخول</a></p>
+  </div>
+
+<script src="assets/config.js"></script>
+<script>
+buildCountrySelect(document.getElementById('countryCode'));
+
+const registerForm = document.getElementById('registerForm');
+const registerBtn = document.getElementById('registerBtn');
+const registerMessage = document.getElementById('registerMessage');
+
+function showMessage(text, type) {
+  registerMessage.textContent = text;
+  registerMessage.className = 'message show ' + type;
+}
+
+registerForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const name = document.getElementById('name').value.trim();
+  const countryCode = document.getElementById('countryCode').value;
+  const localPhone = document.getElementById('phone').value.trim();
+  const phone = combinePhone(countryCode, localPhone);
+  const email = document.getElementById('email').value.trim();
+
+  registerBtn.disabled = true;
+  registerBtn.innerHTML = 'جاري التسجيل... <span class="spinner"></span>';
+
+  const result = await callApi('register', { name, phone, email });
+
+  registerBtn.disabled = false;
+  registerBtn.textContent = 'تسجيل';
+
+  if (result.success) {
+    showMessage(result.message, 'success');
+    registerForm.reset();
+  } else {
+    showMessage(result.message, 'error');
+  }
+});
+</script>
+</body>
+</html>
