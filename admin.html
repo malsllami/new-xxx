@@ -16,7 +16,7 @@
     <form id="adminLoginForm">
       <label for="adminCode">الرمز</label>
       <div class="pw-wrap">
-        <input type="password" id="adminCode" required>
+        <input type="password" id="adminCode" inputmode="numeric" required>
         <button type="button" class="pw-eye" id="toggleAdminCode"
                 onclick="togglePw('adminCode','toggleAdminCode')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -83,7 +83,7 @@ if (getAdminCode()) {
 
 adminLoginForm.addEventListener('submit', async (e) => {
   e.preventDefault();
-  const code = document.getElementById('adminCode').value.trim();
+  const code = toEnglishDigits(document.getElementById('adminCode').value.trim());
 
   adminLoginBtn.disabled = true;
   adminLoginBtn.innerHTML = 'جاري التحقق... <span class="spinner"></span>';
