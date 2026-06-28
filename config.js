@@ -3,7 +3,7 @@
 // كيف تحصل عليه: Apps Script -> Deploy -> New deployment -> Web app -> Deploy
 // ينسخ لك رابط ينتهي بـ /exec ، الصقه هنا
 // ============================================================
-const API_URL = 'PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwhp8JykKhfrTLVO_3Uz-hWZ2zs4yLRqNenbKS0HbtXGyuR-5gT9_D7LwjWdUx8EvcZ-g/exec';
 
 /**
  * دالة موحّدة لاستدعاء الباك إند
