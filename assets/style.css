@@ -400,6 +400,33 @@ th { color: var(--text-muted); font-weight: 600; font-size: 13px; }
   letter-spacing: .01em;
 }
 
+/* الحساب المحفوظ للبصمة */
+.fp-saved {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 3px 10px;
+  background: #e8f5f2;
+  border: 1px solid #b2dfdb;
+  border-radius: 20px;
+  font-size: 11px;
+  color: #1e6f5c;
+  direction: rtl;
+}
+.fp-saved-name { font-weight: 600; }
+.fp-saved-clear {
+  background: none;
+  border: none;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+  margin-right: auto;
+}
+.fp-saved-clear:hover { color: #dc2626; }
+
 /* نبض أثناء المسح */
 @keyframes fp-pulse {
   0%,100% {
