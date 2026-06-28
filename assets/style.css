@@ -323,7 +323,11 @@ th { color: var(--text-muted); font-weight: 600; font-size: 13px; }
   margin: 0;
   width: auto;
   display: block;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
 }
+.fp-btn:focus,
+.fp-btn:focus-visible { outline: none; }
 
 /* الحلقة الخارجية (تيل) */
 .fp-ring {
@@ -400,32 +404,56 @@ th { color: var(--text-muted); font-weight: 600; font-size: 13px; }
   letter-spacing: .01em;
 }
 
-/* الحساب المحفوظ للبصمة */
+/* حسابات البصمة المحفوظة (شرائح قابلة للضغط) */
 .fp-saved {
   display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 4px;
-  padding: 3px 10px;
-  background: #e8f5f2;
-  border: 1px solid #b2dfdb;
-  border-radius: 20px;
-  font-size: 11px;
-  color: #1e6f5c;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
   direction: rtl;
 }
-.fp-saved-name { font-weight: 600; }
-.fp-saved-clear {
+
+.fp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px 5px 10px;
+  background: #e8f5f2;
+  border: 1.5px solid #b2dfdb;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e6f5c;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, transform .1s;
+  user-select: none;
+}
+.fp-chip:hover  { background: #d0ede9; border-color: #1e6f5c; }
+.fp-chip:active { transform: scale(.95); }
+
+.fp-chip > button {
   background: none;
   border: none;
-  color: #6b7280;
+  color: #9ca3af;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 400;
   line-height: 1;
   padding: 0 2px;
-  margin-right: auto;
+  margin: 0;
+  width: auto;
+  display: inline;
+  transition: color .15s;
 }
-.fp-saved-clear:hover { color: #dc2626; }
+.fp-chip > button:hover { color: #dc2626; background: none; }
+
+@keyframes fp-shake {
+  0%,100% { transform: translateX(0); }
+  25%      { transform: translateX(-5px); }
+  75%      { transform: translateX(5px); }
+}
+.fp-shake { animation: fp-shake .35s ease; }
 
 /* نبض أثناء المسح */
 @keyframes fp-pulse {
