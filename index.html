@@ -80,10 +80,7 @@
         </div>
       </button>
       <span class="fp-label">دخول بالبصمة الحيوية</span>
-      <div class="fp-saved" id="fpSaved" style="display:none;">
-        <span class="fp-saved-name" id="fpSavedName"></span>
-        <button type="button" class="fp-saved-clear" onclick="clearBiometricSave()" title="إزالة الحساب المحفوظ">×</button>
-      </div>
+      <div class="fp-saved" id="fpSaved" style="display:none;"></div>
     </div>
 
     <div class="message" id="loginMsg"></div>
@@ -198,11 +195,40 @@
           دخول بالرمز
         </button>
 
+        <div class="divider"><span>أو</span></div>
+
+        <div class="fp-wrap" style="margin:4px 0 0;">
+          <button class="fp-btn fp-btn--admin" id="adminBiometricBtn" type="button">
+            <div class="fp-ring">
+              <div class="fp-inner">
+                <svg class="fp-icon" viewBox="0 0 100 105"><use href="#fp"/></svg>
+              </div>
+            </div>
+          </button>
+          <span class="fp-label" style="color:#94a3b8;">دخول المدير بالبصمة</span>
+        </div>
+
         <div class="message" id="adminLoginMsg"></div>
       </div>
 
       <!-- ── لوحة تحكم المدير (تظهر بعد الدخول) ── -->
       <div id="adminDashSec" style="display:none;">
+
+        <!-- تفعيل بصمة المدير لهذا الجهاز -->
+        <div style="text-align:center;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #f1f5f9;">
+          <div class="fp-wrap" style="margin:0 0 4px;">
+            <button class="fp-btn fp-btn--admin" id="adminEnrollBtn" type="button">
+              <div class="fp-ring">
+                <div class="fp-inner">
+                  <svg class="fp-icon" viewBox="0 0 100 105"><use href="#fp"/></svg>
+                </div>
+              </div>
+            </button>
+            <span class="fp-label" style="color:#94a3b8;">تفعيل بصمة المدير لهذا الجهاز</span>
+          </div>
+          <div class="message" id="adminEnrollMsg"></div>
+        </div>
+
         <div class="dash-top">
           <h2>لوحة تحكم المدير</h2>
           <button class="btn-small btn-secondary" onclick="doAdminLogout()"
@@ -273,6 +299,12 @@ function showView(nextId) {
 // ──────────────────────────────────────────────
 buildCountrySelect(document.getElementById('countryCode'));
 buildCountrySelect(document.getElementById('regCountryCode'));
+
+// ترحيل الصيغة القديمة (bPhone/bName) للقائمة الجديدة
+(function () {
+  const p = localStorage.getItem('bPhone'), n = localStorage.getItem('bName');
+  if (p && n) { saveBiometricAccount(p, n); localStorage.removeItem('bPhone'); localStorage.removeItem('bName'); }
+})();
 refreshFpSaved();
 
 // استعادة الجلسة
@@ -313,23 +345,63 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
 });
 
 // ──────────────────────────────────────────────
-// حساب البصمة المحفوظ
+// حسابات البصمة المحفوظة (تدعم أكثر من حساب)
 // ──────────────────────────────────────────────
-function refreshFpSaved() {
-  const name  = localStorage.getItem('bName');
-  const saved = document.getElementById('fpSaved');
-  if (name) {
-    document.getElementById('fpSavedName').textContent = name;
-    saved.style.display = 'flex';
-  } else {
-    saved.style.display = 'none';
-  }
+function getBiometricAccounts() {
+  try { return JSON.parse(localStorage.getItem('bAccounts') || '[]'); }
+  catch { return []; }
 }
 
-function clearBiometricSave() {
-  localStorage.removeItem('bPhone');
-  localStorage.removeItem('bName');
+function saveBiometricAccount(phone, name) {
+  const list = getBiometricAccounts().filter(a => a.phone !== phone);
+  list.unshift({ phone, name });
+  localStorage.setItem('bAccounts', JSON.stringify(list));
+}
+
+function removeBiometricAccount(phone) {
+  const list = getBiometricAccounts().filter(a => a.phone !== phone);
+  localStorage.setItem('bAccounts', JSON.stringify(list));
   refreshFpSaved();
+}
+
+function refreshFpSaved() {
+  const accounts = getBiometricAccounts();
+  const container = document.getElementById('fpSaved');
+  if (accounts.length === 0) { container.style.display = 'none'; container.innerHTML = ''; return; }
+  container.style.display = 'flex';
+  container.innerHTML = '';
+  accounts.forEach(a => {
+    const chip = document.createElement('div');
+    chip.className = 'fp-chip';
+    chip.addEventListener('click', () => biometricLoginFor(a.phone));
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = a.name;
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.textContent = '×';
+    removeBtn.addEventListener('click', e => { e.stopPropagation(); removeBiometricAccount(a.phone); });
+    chip.appendChild(nameSpan);
+    chip.appendChild(removeBtn);
+    container.appendChild(chip);
+  });
+}
+
+async function biometricLoginFor(phone) {
+  clearMsg('loginMsg');
+  const btn = document.getElementById('biometricBtn');
+  btn.classList.add('scanning');
+  const r = await loginWithBiometric(phone);
+  btn.classList.remove('scanning');
+  if (r.success) {
+    saveSession(r.user, document.getElementById('rememberMe').checked);
+    showWelcome(r.user);
+  } else {
+    let msg = r.message || 'فشل تسجيل الدخول بالبصمة';
+    if (msg.includes('not supported') || msg.includes('لا يدعم')) msg = 'هذا الجهاز لا يدعم البصمة الحيوية';
+    else if (msg.includes('cancel') || msg.includes('إلغاء')) msg = 'تم إلغاء العملية';
+    else if (msg.includes('مفعّلة') || msg.includes('بصمة مفعّل')) msg = 'لا توجد بصمة مسجّلة لهذا الجهاز — سجّل دخولك برقم الجوال أولاً ثم فعّل البصمة';
+    showMsg('loginMsg', msg, 'error');
+  }
 }
 
 // ──────────────────────────────────────────────
@@ -337,42 +409,21 @@ function clearBiometricSave() {
 // ──────────────────────────────────────────────
 document.getElementById('biometricBtn').addEventListener('click', async () => {
   const localPhone = document.getElementById('phone').value.trim();
-  let phone;
-
   if (localPhone) {
-    // إذا أدخل الرقم يدوياً نستخدمه
-    phone = combinePhone(document.getElementById('countryCode').value, localPhone);
-  } else {
-    // نبحث عن رقم محفوظ من تفعيل البصمة السابق
-    const stored = localStorage.getItem('bPhone');
-    if (!stored) {
-      showMsg('loginMsg', 'سجّل دخولك أولاً ثم فعّل البصمة من صفحة الترحيب', 'error');
-      return;
-    }
-    phone = stored;
+    await biometricLoginFor(combinePhone(document.getElementById('countryCode').value, localPhone));
+    return;
   }
-
-  clearMsg('loginMsg');
-  const btn = document.getElementById('biometricBtn');
-  btn.classList.add('scanning');
-
-  const r = await loginWithBiometric(phone);
-  btn.classList.remove('scanning');
-
-  if (r.success) {
-    saveSession(r.user, document.getElementById('rememberMe').checked);
-    showWelcome(r.user);
-  } else {
-    let errMsg = r.message || 'فشل تسجيل الدخول بالبصمة';
-    if (errMsg.includes('not supported') || errMsg.includes('لا يدعم')) {
-      errMsg = 'هذا الجهاز لا يدعم البصمة الحيوية';
-    } else if (errMsg.includes('cancelled') || errMsg.includes('إلغاء') || errMsg.includes('إلغ')) {
-      errMsg = 'تم إلغاء العملية';
-    } else if (errMsg.includes('مفعّلة') || errMsg.includes('بصمة مفعّل')) {
-      errMsg = 'لا توجد بصمة مسجّلة لهذا الجهاز — سجّل دخولك برقم الجوال أولاً ثم فعّل البصمة';
-    }
-    showMsg('loginMsg', errMsg, 'error');
+  const accounts = getBiometricAccounts();
+  if (accounts.length === 0) {
+    showMsg('loginMsg', 'سجّل دخولك أولاً ثم فعّل البصمة من صفحة الترحيب', 'error');
+    return;
   }
+  if (accounts.length === 1) { await biometricLoginFor(accounts[0].phone); return; }
+  // أكثر من حساب — يبرز قائمة الاختيار
+  showMsg('loginMsg', 'اختر الحساب من القائمة أدناه', 'error');
+  const saved = document.getElementById('fpSaved');
+  saved.classList.add('fp-shake');
+  setTimeout(() => saved.classList.remove('fp-shake'), 600);
 });
 
 // ──────────────────────────────────────────────
@@ -433,8 +484,7 @@ document.getElementById('enrollBtn').addEventListener('click', async () => {
 
   // احفظ الرقم والاسم لاستخدامهما عند الضغط على البصمة مباشرةً
   if (r.success && window.__user) {
-    localStorage.setItem('bPhone', window.__user.phone);
-    localStorage.setItem('bName',  window.__user.name);
+    saveBiometricAccount(window.__user.phone, window.__user.name);
     refreshFpSaved();
   }
 });
@@ -451,6 +501,37 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
 // ──────────────────────────────────────────────
 // لوحة المدير العائمة
 // ──────────────────────────────────────────────
+// ──────────────────────────────────────────────
+// بصمة المدير — دخول
+// ──────────────────────────────────────────────
+document.getElementById('adminBiometricBtn').addEventListener('click', async () => {
+  clearMsg('adminLoginMsg');
+  const btn = document.getElementById('adminBiometricBtn');
+  btn.classList.add('scanning');
+  const r = await loginAdminWithBiometric();
+  btn.classList.remove('scanning');
+  if (r.success) {
+    sessionStorage.setItem('adminCode', r.code);
+    revealAdminDash();
+  } else {
+    let msg = r.message || 'فشل تسجيل الدخول بالبصمة';
+    if (msg.includes('مفعّلة') || msg.includes('فعّلها')) msg = 'لا توجد بصمة مفعّلة للمدير — ادخل بالرمز أولاً ثم فعّلها';
+    else if (msg.includes('cancel') || msg.includes('إلغاء')) msg = 'تم إلغاء العملية';
+    showMsg('adminLoginMsg', msg, 'error');
+  }
+});
+
+// بصمة المدير — تفعيل (من داخل لوحة التحكم)
+document.getElementById('adminEnrollBtn').addEventListener('click', async () => {
+  const adminCode = sessionStorage.getItem('adminCode');
+  if (!adminCode) { showMsg('adminEnrollMsg', 'انتهت جلستك، أعد الدخول', 'error'); return; }
+  const btn = document.getElementById('adminEnrollBtn');
+  btn.classList.add('scanning');
+  const r = await registerAdminBiometric(adminCode);
+  btn.classList.remove('scanning');
+  showMsg('adminEnrollMsg', r.message, r.success ? 'success' : 'error');
+});
+
 document.getElementById('adminFab').addEventListener('click', () => {
   document.getElementById('adminOverlay').classList.contains('open')
     ? closeOverlay() : openOverlay();
