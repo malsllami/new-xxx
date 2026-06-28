@@ -184,7 +184,7 @@
 
         <label for="adminCode">الرمز السري</label>
         <div class="pw-wrap">
-          <input type="password" id="adminCode" placeholder="••••••••" autocomplete="off">
+          <input type="password" id="adminCode" placeholder="••••••••" autocomplete="off" inputmode="numeric">
           <button type="button" class="pw-eye" id="adminCodeEye"
                   onclick="togglePw('adminCode','adminCodeEye')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -461,7 +461,7 @@ function openOverlay()  { document.getElementById('adminOverlay').classList.add(
 function closeOverlay() { document.getElementById('adminOverlay').classList.remove('open'); }
 
 async function doAdminLogin() {
-  const code = document.getElementById('adminCode').value.trim();
+  const code = toEnglishDigits(document.getElementById('adminCode').value.trim());
   if (!code) return;
 
   const btn = document.getElementById('adminLoginBtn');
