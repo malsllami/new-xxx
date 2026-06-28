@@ -57,7 +57,7 @@
       <label for="phone">رقم الجوال</label>
       <div class="phone-group">
         <select id="countryCode"></select>
-        <input type="tel" id="phone" placeholder="5xxxxxxxx" required>
+        <input type="text" inputmode="numeric" id="phone" placeholder="5xxxxxxxx" required>
       </div>
 
       <div class="remember-row">
@@ -80,6 +80,10 @@
         </div>
       </button>
       <span class="fp-label">دخول بالبصمة الحيوية</span>
+      <div class="fp-saved" id="fpSaved" style="display:none;">
+        <span class="fp-saved-name" id="fpSavedName"></span>
+        <button type="button" class="fp-saved-clear" onclick="clearBiometricSave()" title="إزالة الحساب المحفوظ">×</button>
+      </div>
     </div>
 
     <div class="message" id="loginMsg"></div>
@@ -109,7 +113,7 @@
       <label for="regPhone">رقم الجوال</label>
       <div class="phone-group">
         <select id="regCountryCode"></select>
-        <input type="tel" id="regPhone" placeholder="5xxxxxxxx" required>
+        <input type="text" inputmode="numeric" id="regPhone" placeholder="5xxxxxxxx" required>
       </div>
       <div class="hint">سيتم استخدام هذا الرقم لتسجيل الدخول لاحقاً</div>
 
@@ -194,20 +198,6 @@
           دخول بالرمز
         </button>
 
-        <div class="divider"><span>أو</span></div>
-
-        <!-- زر بصمة المدير (داكن) -->
-        <div class="fp-wrap">
-          <button class="fp-btn fp-btn--admin" id="adminFpBtn" type="button">
-            <div class="fp-ring">
-              <div class="fp-inner">
-                <svg class="fp-icon" viewBox="0 0 100 105"><use href="#fp"/></svg>
-              </div>
-            </div>
-          </button>
-          <span class="fp-label" style="color:#64748b;">دخول المدير بالبصمة</span>
-        </div>
-
         <div class="message" id="adminLoginMsg"></div>
       </div>
 
@@ -283,6 +273,7 @@ function showView(nextId) {
 // ──────────────────────────────────────────────
 buildCountrySelect(document.getElementById('countryCode'));
 buildCountrySelect(document.getElementById('regCountryCode'));
+refreshFpSaved();
 
 // استعادة الجلسة
 (function restoreSession() {
@@ -322,27 +313,65 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
 });
 
 // ──────────────────────────────────────────────
+// حساب البصمة المحفوظ
+// ──────────────────────────────────────────────
+function refreshFpSaved() {
+  const name  = localStorage.getItem('bName');
+  const saved = document.getElementById('fpSaved');
+  if (name) {
+    document.getElementById('fpSavedName').textContent = name;
+    saved.style.display = 'flex';
+  } else {
+    saved.style.display = 'none';
+  }
+}
+
+function clearBiometricSave() {
+  localStorage.removeItem('bPhone');
+  localStorage.removeItem('bName');
+  refreshFpSaved();
+}
+
+// ──────────────────────────────────────────────
 // تسجيل دخول بالبصمة (عضو)
 // ──────────────────────────────────────────────
 document.getElementById('biometricBtn').addEventListener('click', async () => {
   const localPhone = document.getElementById('phone').value.trim();
-  if (!localPhone) { showMsg('loginMsg', 'أدخل رقم جوالك أولاً', 'error'); return; }
+  let phone;
 
-  const phone = combinePhone(document.getElementById('countryCode').value, localPhone);
+  if (localPhone) {
+    // إذا أدخل الرقم يدوياً نستخدمه
+    phone = combinePhone(document.getElementById('countryCode').value, localPhone);
+  } else {
+    // نبحث عن رقم محفوظ من تفعيل البصمة السابق
+    const stored = localStorage.getItem('bPhone');
+    if (!stored) {
+      showMsg('loginMsg', 'سجّل دخولك أولاً ثم فعّل البصمة من صفحة الترحيب', 'error');
+      return;
+    }
+    phone = stored;
+  }
+
   clearMsg('loginMsg');
-
   const btn = document.getElementById('biometricBtn');
   btn.classList.add('scanning');
 
   const r = await loginWithBiometric(phone);
-
   btn.classList.remove('scanning');
 
   if (r.success) {
     saveSession(r.user, document.getElementById('rememberMe').checked);
     showWelcome(r.user);
   } else {
-    showMsg('loginMsg', r.message, 'error');
+    let errMsg = r.message || 'فشل تسجيل الدخول بالبصمة';
+    if (errMsg.includes('not supported') || errMsg.includes('لا يدعم')) {
+      errMsg = 'هذا الجهاز لا يدعم البصمة الحيوية';
+    } else if (errMsg.includes('cancelled') || errMsg.includes('إلغاء') || errMsg.includes('إلغ')) {
+      errMsg = 'تم إلغاء العملية';
+    } else if (errMsg.includes('مفعّلة') || errMsg.includes('بصمة مفعّل')) {
+      errMsg = 'لا توجد بصمة مسجّلة لهذا الجهاز — سجّل دخولك برقم الجوال أولاً ثم فعّل البصمة';
+    }
+    showMsg('loginMsg', errMsg, 'error');
   }
 });
 
@@ -401,6 +430,13 @@ document.getElementById('enrollBtn').addEventListener('click', async () => {
   const r = await registerBiometric(window.__user.id);
   btn.classList.remove('scanning');
   showMsg('enrollMsg', r.message, r.success ? 'success' : 'error');
+
+  // احفظ الرقم والاسم لاستخدامهما عند الضغط على البصمة مباشرةً
+  if (r.success && window.__user) {
+    localStorage.setItem('bPhone', window.__user.phone);
+    localStorage.setItem('bName',  window.__user.name);
+    refreshFpSaved();
+  }
 });
 
 // تسجيل الخروج
@@ -535,10 +571,6 @@ async function adminAction(action, userId) {
   else alert(r.message);
 }
 
-// بصمة المدير (مستقبلي)
-document.getElementById('adminFpBtn').addEventListener('click', () => {
-  showMsg('adminLoginMsg', 'بصمة المدير — ميزة قيد التطوير', 'error');
-});
 </script>
 </body>
 </html>
